@@ -1,0 +1,8 @@
+founder@acmeventures.io
+cto@nextgen-cloud.tech
+vp.eng@globalmatrix.com
+lead.architect@scalablerobotics.ai
+duplicate.entry@acmeventures.io
+founder@acmeventures.io
+not-a-valid-email-here
+coo@enterpriseworks.org

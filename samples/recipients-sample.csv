@@ -1,0 +1,9 @@
+email,name,company,title
+sarah.connor@cyberdyne.io,Sarah Connor,Cyberdyne Systems,Head of Engineering
+alex.chen@cloudscale.ai,Alex Chen,CloudScale AI,VP Infrastructure
+elena.rostova@fintech-core.com,Elena Rostova,FinTech Core,Chief Technology Officer
+david.kim@quantumleap.tech,David Kim,QuantumLeap,Lead Systems Architect
+invalid-syntax-email-address,Bad Email,Test Company,Tester
+marcus.vance@databridge.net,Marcus Vance,DataBridge,Director of DevOps
+alex.chen@cloudscale.ai,Alex Chen,CloudScale AI,VP Infrastructure
+priya.patel@hypergrowth.co,Priya Patel,HyperGrowth Labs,Founder & CEO

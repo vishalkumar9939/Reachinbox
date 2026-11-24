@@ -1,0 +1,23 @@
+{
+  "name": "reachinbox-scheduler-root",
+  "version": "1.0.0",
+  "description": "ReachInbox Email Scheduler monorepo",
+  "private": true,
+  "workspaces": [
+    "backend",
+    "frontend"
+  ],
+  "scripts": {
+    "start:redis": "redis-bin\\redis-server.exe --port 6379",
+    "dev:backend": "npm --prefix backend run dev",
+    "dev:worker": "npm --prefix backend run worker",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "start:backend": "node backend/dist/server.js",
+    "start:worker": "node backend/dist/workers/email.worker.js",
+    "build:backend": "npm --prefix backend run build",
+    "build:frontend": "npm --prefix frontend run build",
+    "build": "npm run build:backend && npm run build:frontend",
+    "test": ".\\backend\\node_modules\\.bin\\vitest run backend/tests",
+    "test:backend": ".\\backend\\node_modules\\.bin\\vitest run backend/tests"
+  }
+}

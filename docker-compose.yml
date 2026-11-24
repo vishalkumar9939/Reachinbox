@@ -1,0 +1,158 @@
+version: '3.8'
+
+services:
+  # ----------------------------------------------------------------------------
+  # PostgreSQL Database
+  # ----------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    container_name: reachinbox-postgres
+    restart: always
+    environment:
+      POSTGRES_USER: reachinbox
+      POSTGRES_PASSWORD: reachinbox123
+      POSTGRES_DB: reachinbox_db
+    ports:
+      - '5432:5432'
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U reachinbox -d reachinbox_db']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # Redis Queue Broker & Rate Limiting Storage
+  # ----------------------------------------------------------------------------
+  redis:
+    image: redis:7-alpine
+    container_name: reachinbox-redis
+    restart: always
+    ports:
+      - '6379:6379'
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ['CMD', 'redis-cli', 'ping']
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # Elasticsearch Full-Text Search Engine
+  # ----------------------------------------------------------------------------
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.3
+    container_name: reachinbox-elasticsearch
+    restart: always
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - '9200:9200'
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    healthcheck:
+      test: ['CMD-SHELL', 'curl -s http://localhost:9200 >/dev/null || exit 1']
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ----------------------------------------------------------------------------
+  # Backend API Server & Socket.IO
+  # ----------------------------------------------------------------------------
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: reachinbox-backend
+    restart: always
+    ports:
+      - '5000:5000'
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      elasticsearch:
+        condition: service_started
+    environment:
+      PORT: 5000
+      NODE_ENV: production
+      DATABASE_URL: postgresql://reachinbox:reachinbox123@postgres:5432/reachinbox_db?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ''
+      FRONTEND_URL: http://localhost:5173
+      BACKEND_URL: http://localhost:5000
+      JWT_SECRET: reachinbox_production_secret_key_change_me_2025
+      JWT_EXPIRES_IN: 7d
+      WORKER_CONCURRENCY: 5
+      MAX_EMAILS_PER_HOUR: 200
+      MIN_EMAIL_DELAY_MS: 2000
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ELASTICSEARCH_INDEX: reachinbox-emails
+      DEFAULT_SENDER_EMAIL: outreach@reachinbox.ai
+      DEFAULT_SENDER_NAME: ReachInbox Team
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
+      GOOGLE_CALLBACK_URL: http://localhost:5000/api/auth/google/callback
+      SLACK_CLIENT_ID: ${SLACK_CLIENT_ID:-}
+      SLACK_CLIENT_SECRET: ${SLACK_CLIENT_SECRET:-}
+      SLACK_REDIRECT_URI: http://localhost:5000/api/slack/callback
+
+  # ----------------------------------------------------------------------------
+  # Independent Email Worker Process
+  # ----------------------------------------------------------------------------
+  worker:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.worker
+    container_name: reachinbox-worker
+    restart: always
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      PORT: 5000
+      NODE_ENV: production
+      DATABASE_URL: postgresql://reachinbox:reachinbox123@postgres:5432/reachinbox_db?schema=public
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      REDIS_PASSWORD: ''
+      FRONTEND_URL: http://localhost:5173
+      BACKEND_URL: http://localhost:5000
+      JWT_SECRET: reachinbox_production_secret_key_change_me_2025
+      WORKER_CONCURRENCY: 5
+      MAX_EMAILS_PER_HOUR: 200
+      MIN_EMAIL_DELAY_MS: 2000
+      ELASTICSEARCH_URL: http://elasticsearch:9200
+      ELASTICSEARCH_INDEX: reachinbox-emails
+      DEFAULT_SENDER_EMAIL: outreach@reachinbox.ai
+      DEFAULT_SENDER_NAME: ReachInbox Team
+      SLACK_CLIENT_ID: ${SLACK_CLIENT_ID:-}
+      SLACK_CLIENT_SECRET: ${SLACK_CLIENT_SECRET:-}
+      SLACK_REDIRECT_URI: http://localhost:5000/api/slack/callback
+
+  # ----------------------------------------------------------------------------
+  # React + Vite + Tailwind Frontend (Nginx)
+  # ----------------------------------------------------------------------------
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: reachinbox-frontend
+    restart: always
+    ports:
+      - '5173:80'
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  redis_data:
+  es_data:
