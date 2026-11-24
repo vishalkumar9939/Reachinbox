@@ -4,11 +4,34 @@ import { env } from '../config/env.js';
 import { prisma } from '../config/prisma.js';
 import { generateToken, AuthenticatedRequest } from '../middleware/auth.middleware.js';
 
-const googleClient = new OAuth2Client({
-  clientId: env.GOOGLE_CLIENT_ID,
-  clientSecret: env.GOOGLE_CLIENT_SECRET,
-  redirectUri: env.GOOGLE_CALLBACK_URL,
-});
+const getCallbackUrl = (req: Request): string => {
+  if (env.GOOGLE_CALLBACK_URL && !env.GOOGLE_CALLBACK_URL.includes('localhost')) {
+    return env.GOOGLE_CALLBACK_URL;
+  }
+  const host = req.get('host') || req.headers.host;
+  const protocol = (req.headers['x-forwarded-proto'] as string) || req.protocol || 'https';
+  if (host && !host.includes('localhost')) {
+    return `${protocol}://${host}/api/auth/google/callback`;
+  }
+  return env.GOOGLE_CALLBACK_URL;
+};
+
+const getFrontendUrl = (req: Request, state?: string): string => {
+  if (state && (state.startsWith('http://') || state.startsWith('https://'))) {
+    return state;
+  }
+  if (env.FRONTEND_URL && !env.FRONTEND_URL.includes('localhost')) {
+    return env.FRONTEND_URL;
+  }
+  const origin = req.get('origin') || req.get('referer');
+  if (origin && !origin.includes('localhost')) {
+    try {
+      const u = new URL(origin);
+      return `${u.protocol}//${u.host}`;
+    } catch {}
+  }
+  return env.FRONTEND_URL;
+};
 
 export class AuthController {
   /**
@@ -23,13 +46,26 @@ export class AuthController {
       });
     }
 
-    const authUrl = googleClient.generateAuthUrl({
+    const redirectUri = getCallbackUrl(req);
+    const client = new OAuth2Client({
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
+      redirectUri,
+    });
+
+    const frontendTarget =
+      (req.query.frontendUrl as string) ||
+      (req.get('origin') && !req.get('origin')?.includes('localhost') ? req.get('origin') : '') ||
+      env.FRONTEND_URL;
+
+    const authUrl = client.generateAuthUrl({
       access_type: 'offline',
       scope: ['https://www.googleapis.com/auth/userinfo.profile', 'https://www.googleapis.com/auth/userinfo.email'],
       prompt: 'consent',
+      state: frontendTarget,
     });
 
-    return res.json({ success: true, url: authUrl });
+    return res.json({ success: true, url: authUrl, redirectUri });
   }
 
   /**
@@ -39,6 +75,15 @@ export class AuthController {
     const isGet = req.method === 'GET';
     const code = (req.query.code as string) || req.body?.code;
     const credential = req.body?.credential;
+    const state = req.query.state as string | undefined;
+    const targetFrontend = getFrontendUrl(req, state);
+    const redirectUri = getCallbackUrl(req);
+
+    const client = new OAuth2Client({
+      clientId: env.GOOGLE_CLIENT_ID,
+      clientSecret: env.GOOGLE_CLIENT_SECRET,
+      redirectUri,
+    });
 
     try {
       let email = '';
@@ -48,10 +93,10 @@ export class AuthController {
 
       // Handle standard authorization code exchange
       if (code) {
-        const { tokens } = await googleClient.getToken(code);
-        googleClient.setCredentials(tokens);
+        const { tokens } = await client.getToken(code);
+        client.setCredentials(tokens);
 
-        const ticket = await googleClient.verifyIdToken({
+        const ticket = await client.verifyIdToken({
           idToken: tokens.id_token!,
           audience: env.GOOGLE_CLIENT_ID,
         });
@@ -59,7 +104,7 @@ export class AuthController {
         const payload = ticket.getPayload();
         if (!payload || !payload.email) {
           if (isGet) {
-            return res.redirect(`${env.FRONTEND_URL}/login?error=${encodeURIComponent('Could not extract user details from Google token')}`);
+            return res.redirect(`${targetFrontend}/login?error=${encodeURIComponent('Could not extract user details from Google token')}`);
           }
           return res.status(400).json({ success: false, message: 'Could not extract user details from Google token' });
         }
@@ -71,7 +116,7 @@ export class AuthController {
       }
       // Handle One-Tap credential ID token
       else if (credential) {
-        const ticket = await googleClient.verifyIdToken({
+        const ticket = await client.verifyIdToken({
           idToken: credential,
           audience: env.GOOGLE_CLIENT_ID,
         });
@@ -87,7 +132,7 @@ export class AuthController {
         avatar = payload.picture || null;
       } else {
         if (isGet) {
-          return res.redirect(`${env.FRONTEND_URL}/login?error=${encodeURIComponent('No authorization code received from Google')}`);
+          return res.redirect(`${targetFrontend}/login?error=${encodeURIComponent('No authorization code received from Google')}`);
         }
         return res.status(400).json({ success: false, message: 'Authorization code or credential token is required' });
       }
@@ -132,7 +177,7 @@ export class AuthController {
           avatar: user.avatar,
         };
         return res.redirect(
-          `${env.FRONTEND_URL}/login?token=${encodeURIComponent(token)}&user=${encodeURIComponent(JSON.stringify(userData))}`
+          `${targetFrontend}/login?token=${encodeURIComponent(token)}&user=${encodeURIComponent(JSON.stringify(userData))}`
         );
       }
 

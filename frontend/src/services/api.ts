@@ -43,8 +43,10 @@ api.interceptors.response.use(
 );
 
 export const authApi = {
-  getGoogleAuthUrl: async () => {
-    const res = await api.get<{ success: boolean; url: string }>('/auth/google/url');
+  getGoogleAuthUrl: async (frontendUrl?: string) => {
+    const res = await api.get<{ success: boolean; url: string }>('/auth/google/url', {
+      params: { frontendUrl: frontendUrl || window.location.origin },
+    });
     return res.data;
   },
   verifyGoogleToken: async (data: { code?: string; credential?: string }) => {

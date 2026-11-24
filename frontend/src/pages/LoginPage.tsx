@@ -36,7 +36,7 @@ export const LoginPage: React.FC = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await authApi.getGoogleAuthUrl();
+      const res = await authApi.getGoogleAuthUrl(window.location.origin);
       if (res.success && res.url) {
         window.location.href = res.url;
       }
