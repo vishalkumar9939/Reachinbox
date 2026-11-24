@@ -1,0 +1,69 @@
+services:
+  # ReachInbox Express API Server
+  - type: web
+    name: reachinbox-api
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install && npm run build:prod
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: DATABASE_URL
+        fromDatabase:
+          name: reachinbox-db
+          property: connectionString
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        sync: false
+      - key: REDIS_PASSWORD
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: FRONTEND_URL
+        sync: false
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
+      - key: GOOGLE_CALLBACK_URL
+        sync: false
+      - key: MAX_EMAILS_PER_HOUR
+        value: "200"
+      - key: WORKER_CONCURRENCY
+        value: "5"
+
+  # ReachInbox BullMQ Email Worker
+  - type: worker
+    name: reachinbox-worker
+    runtime: node
+    plan: free
+    rootDir: backend
+    buildCommand: npm install && npm run build:prod
+    startCommand: npm run start:worker
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: DATABASE_URL
+        fromDatabase:
+          name: reachinbox-db
+          property: connectionString
+      - key: REDIS_HOST
+        sync: false
+      - key: REDIS_PORT
+        sync: false
+      - key: REDIS_PASSWORD
+        sync: false
+      - key: MAX_EMAILS_PER_HOUR
+        value: "200"
+      - key: WORKER_CONCURRENCY
+        value: "5"
+
+databases:
+  - name: reachinbox-db
+    plan: free
+    databaseName: reachinbox

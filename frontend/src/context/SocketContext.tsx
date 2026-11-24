@@ -54,7 +54,11 @@ export const SocketProvider: React.FC<{ children: React.ReactNode }> = ({ childr
       return;
     }
 
-    const socketInstance = io(window.location.origin, {
+    const apiBase = (import.meta as any).env?.VITE_API_URL as string | undefined;
+    const wsBase = (import.meta as any).env?.VITE_WS_URL as string | undefined;
+    const socketOrigin = wsBase || (apiBase ? apiBase.replace(/\/api\/?$/, '') : window.location.origin);
+
+    const socketInstance = io(socketOrigin, {
       auth: { token },
       transports: ['websocket', 'polling'],
       reconnectionAttempts: 10,
