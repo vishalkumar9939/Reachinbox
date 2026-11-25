@@ -41,9 +41,12 @@ export const emailWorker = new Worker<EmailJobData>(
     }
 
     // Step 2: Check Hourly Rate Limiting
+    // Uses sender/global throughput limit (default 200/hr) without any per-recipient limitation.
+    // If a custom hourlyLimit is set to <= 0 or not provided, it falls back to MAX_EMAILS_PER_HOUR.
+    const effectiveLimit = hourlyLimit && hourlyLimit > 0 ? hourlyLimit : env.MAX_EMAILS_PER_HOUR;
     const rateLimitCheck = await RateLimitService.checkAndIncrementHourlyLimit(
       senderEmail,
-      hourlyLimit || env.MAX_EMAILS_PER_HOUR
+      effectiveLimit
     );
 
     if (!rateLimitCheck.allowed) {

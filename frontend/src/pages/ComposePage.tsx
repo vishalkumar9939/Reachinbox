@@ -271,7 +271,7 @@ export const ComposePage: React.FC = () => {
         body: htmlContent,
         startTime: startTimeIso,
         delayBetweenEmails: delayBetween * 1000,
-        hourlyLimit: hourlyLimit || 200,
+        hourlyLimit: hourlyLimit && hourlyLimit > 0 ? hourlyLimit : 200,
         campaignName: subject,
       });
       if (res.success) {

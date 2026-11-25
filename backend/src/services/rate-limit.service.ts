@@ -30,6 +30,7 @@ export class RateLimitService {
     const limit = customLimit && customLimit > 0 ? customLimit : env.MAX_EMAILS_PER_HOUR;
     const { bucketKey, resetTime, retryAfterMs } = this.getHourBucket();
 
+    // Keyed per sender and global bucket — no per-recipient throttling
     const senderKey = `rate_limit:hourly:sender:${senderEmail.toLowerCase()}:${bucketKey}`;
     const globalKey = `rate_limit:hourly:global:${bucketKey}`;
 
