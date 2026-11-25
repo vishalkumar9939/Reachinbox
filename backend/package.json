@@ -9,7 +9,7 @@
     "build": "tsc",
     "build:prod": "prisma generate && prisma db push --skip-generate && tsc",
     "postinstall": "prisma generate",
-    "start": "node dist/server.js",
+    "start": "npx prisma db push --skip-generate && node dist/server.js",
     "start:worker": "node dist/workers/email.worker.js",
     "prisma:generate": "prisma generate",
     "prisma:push": "prisma db push",
