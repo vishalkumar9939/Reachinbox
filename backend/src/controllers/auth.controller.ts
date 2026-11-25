@@ -16,19 +16,37 @@ const getCallbackUrl = (req: Request): string => {
   return env.GOOGLE_CALLBACK_URL;
 };
 
+// Whitelist of allowed frontend origins to prevent open-redirect attacks
+const ALLOWED_FRONTEND_ORIGINS = [
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+  'https://reachinbox-frontend-beta.vercel.app',
+];
+
+const isAllowedOrigin = (url: string): boolean => {
+  try {
+    const parsed = new URL(url);
+    const origin = `${parsed.protocol}//${parsed.host}`;
+    if (ALLOWED_FRONTEND_ORIGINS.includes(origin)) return true;
+    if (origin === env.FRONTEND_URL) return true;
+    // Allow any *.vercel.app preview deployments
+    if (parsed.hostname.endsWith('.vercel.app')) return true;
+    return false;
+  } catch {
+    return false;
+  }
+};
+
 const getFrontendUrl = (req: Request, state?: string): string => {
-  if (state && (state.startsWith('http://') || state.startsWith('https://'))) {
-    return state;
+  // Only trust state if it matches a whitelisted origin
+  if (state && (state.startsWith('http://') || state.startsWith('https://')) && isAllowedOrigin(state)) {
+    try {
+      const u = new URL(state);
+      return `${u.protocol}//${u.host}`;
+    } catch {}
   }
   if (env.FRONTEND_URL && !env.FRONTEND_URL.includes('localhost')) {
     return env.FRONTEND_URL;
-  }
-  const origin = req.get('origin') || req.get('referer');
-  if (origin && !origin.includes('localhost')) {
-    try {
-      const u = new URL(origin);
-      return `${u.protocol}//${u.host}`;
-    } catch {}
   }
   return env.FRONTEND_URL;
 };
@@ -53,10 +71,9 @@ export class AuthController {
       redirectUri,
     });
 
-    const frontendTarget =
-      (req.query.frontendUrl as string) ||
-      (req.get('origin') && !req.get('origin')?.includes('localhost') ? req.get('origin') : '') ||
-      env.FRONTEND_URL;
+    // Always use the configured FRONTEND_URL for the state parameter to prevent open redirect
+    const rawFrontend = (req.query.frontendUrl as string) || env.FRONTEND_URL;
+    const frontendTarget = isAllowedOrigin(rawFrontend) ? rawFrontend : env.FRONTEND_URL;
 
     const authUrl = client.generateAuthUrl({
       access_type: 'offline',
@@ -208,6 +225,13 @@ export class AuthController {
    * Seamless developer / demo login for immediate local evaluation without Google Cloud setup
    */
   static async devLogin(req: Request, res: Response) {
+    if (env.NODE_ENV === 'production') {
+      return res.status(403).json({
+        success: false,
+        message: 'Developer login is disabled in production. Use Google OAuth to sign in.',
+      });
+    }
+
     const email = req.body.email || 'demo.user@reachinbox.ai';
     const name = req.body.name || 'Demo Engineer';
     const avatar =

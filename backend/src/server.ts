@@ -65,7 +65,14 @@ createBullBoard({
   serverAdapter: serverAdapter,
 });
 
-app.use('/admin/queues', serverAdapter.getRouter());
+// Protect Bull Board in production — only allow authenticated access
+if (env.NODE_ENV === 'production') {
+  app.use('/admin/queues', (req, res, next) => {
+    return res.status(403).json({ success: false, message: 'Queue dashboard is disabled in production' });
+  });
+} else {
+  app.use('/admin/queues', serverAdapter.getRouter());
+}
 
 // ---------------------------------------------------------------------------
 // API Routes

@@ -9,7 +9,12 @@ let io: SocketIOServer | null = null;
 export const initSocketServer = (server: HttpServer): SocketIOServer => {
   io = new SocketIOServer(server, {
     cors: {
-      origin: [env.FRONTEND_URL, 'http://localhost:5173', 'http://127.0.0.1:5173'],
+      origin: [
+        env.FRONTEND_URL,
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+        'https://reachinbox-frontend-beta.vercel.app',
+      ],
       methods: ['GET', 'POST'],
       credentials: true,
     },
