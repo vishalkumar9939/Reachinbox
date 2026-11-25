@@ -15,6 +15,7 @@ import { emailQueue } from './queues/email.queue.js';
 import { mailService } from './integrations/ethereal.service.js';
 import { initSocketServer } from './socket/index.js';
 import apiRouter from './routes/index.js';
+import './workers/email.worker.js'; // Start BullMQ email worker in the same process
 
 const app = express();
 const server = http.createServer(app);
